@@ -1,0 +1,226 @@
+
+Discord Music Bot + Django + DRF — 1 Week Build Plan
+====================================================
+
+FINAL PROJECT GOAL
+------------------
+Build a Discord music bot that:
+- Joins voice channels
+- Queues songs
+- Stores queue data in Django
+- Exposes queue via REST API
+- Optionally includes a small frontend dashboard
+
+Architecture
+-------------
+Discord User
+    ↓
+Discord Bot (discord.py)
+    ↓
+Django REST API
+    ↓
+SQLite/PostgreSQL
+
+--------------------------------------------------
+DAY 1 — Project Setup + Discord Bot Skeleton
+--------------------------------------------------
+
+Goals:
+- Django running
+- DRF installed
+- Discord bot connected
+
+Backend:
+pip install django djangorestframework
+
+Create project:
+django-admin startproject musicbot_backend
+
+Bot:
+pip install discord.py
+
+Tasks:
+- Create Discord application in Discord Developer Portal
+- Generate bot token
+- Invite bot to test server
+- Create basic ping command
+
+Example:
+@bot.command()
+async def ping(ctx):
+    await ctx.send("pong")
+
+Success Criteria:
+- Django server runs
+- Discord bot responds to commands
+
+--------------------------------------------------
+DAY 2 — Song Queue Models + DRF API
+--------------------------------------------------
+
+Goals:
+- Create backend persistence layer
+
+Models:
+
+class GuildQueue(models.Model):
+    guild_id = models.CharField(max_length=255)
+
+class Song(models.Model):
+    queue = models.ForeignKey(GuildQueue, on_delete=models.CASCADE)
+    title = models.CharField(max_length=255)
+    url = models.URLField()
+    added_by = models.CharField(max_length=255)
+    position = models.IntegerField()
+
+Endpoints:
+GET    /queues/{guild_id}/
+POST   /queues/{guild_id}/songs/
+DELETE /songs/{id}/
+
+Tasks:
+- Create serializers
+- Create DRF views
+- Create urls.py routes
+- Test endpoints with Postman
+
+Success Criteria:
+- Songs can be added through API
+- Queue persists in database
+
+--------------------------------------------------
+DAY 3 — Connect Discord Bot to Django API
+--------------------------------------------------
+
+Goals:
+- Bot communicates with backend API
+
+Install:
+pip install requests
+
+Flow:
+/play command
+→ bot sends POST request
+→ API stores song
+→ bot confirms addition
+
+Example:
+requests.post(
+    "http://localhost:8000/api/queues/123/songs/",
+    json=data
+)
+
+Success Criteria:
+- Bot modifies DB through API
+- Queue survives restart
+
+--------------------------------------------------
+DAY 4 — Voice Channel + Audio Playback
+--------------------------------------------------
+
+Goals:
+- Play audio in Discord voice channels
+
+Install:
+pip install yt-dlp PyNaCl
+
+Also install:
+FFmpeg
+
+Commands:
+- /join
+- /play
+- /skip
+
+IMPORTANT:
+Keep playback simple.
+Only support YouTube audio.
+
+Success Criteria:
+- Bot joins voice channel
+- Audio plays
+- Queue advances
+
+--------------------------------------------------
+DAY 5 — Queue Logic + Cleanup
+--------------------------------------------------
+
+Goals:
+- Improve queue management
+
+Add Commands:
+- /queue
+- /remove
+- /clear
+
+Logic:
+- Remove finished song
+- Advance queue
+- Auto-play next song
+
+Focus:
+- Async behavior
+- Queue state
+- Edge cases
+
+Success Criteria:
+- Queue behaves correctly
+- Songs auto-advance
+
+--------------------------------------------------
+DAY 6 — Simple Frontend Dashboard
+--------------------------------------------------
+
+Goals:
+- Display queue in browser
+
+Suggested Stack:
+- Django templates
+- Vanilla JavaScript
+
+Features:
+- Current queue
+- Currently playing
+- Add song form
+
+Success Criteria:
+- Queue visible in browser
+- Songs can be added from frontend
+
+--------------------------------------------------
+DAY 7 — Polish + README + Deployment
+--------------------------------------------------
+
+Goals:
+- Make project portfolio-ready
+
+Tasks:
+- Add screenshots
+- Add architecture diagram
+- Write setup instructions
+- Add command examples
+- Clean codebase
+
+README Topics:
+- Django persistence layer
+- REST API structure
+- Queue orchestration
+- Async challenges
+
+Optional Deployment:
+- Render
+- Railway
+
+--------------------------------------------------
+Important Scope Rules
+--------------------------------------------------
+
+DO NOT ADD:
+- Spotify integration
+- Recommendation systems
+- Realtime sync
+- Advanced frontend
+- User account systems
+- Complex playback features
+
+Keep the MVP focused.

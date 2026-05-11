@@ -1,0 +1,20 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+django = "*"
+djangorestframework = "*"
+mssql-django = "*"
+pyodbc = "*"
+"discord.py" = "*"
+yt-dlp = "*"
+pynacl = "*"
+requests = "*"
+python-decouple = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.14"

@@ -1,0 +1,583 @@
+# Discord Music Bot - Django DRF Project
+## 7-Day Implementation Plan
+
+---
+
+## Day 1: Project Setup & Django Configuration
+
+### Objectives
+- Initialize Django project structure
+- Set up virtual environment and dependencies
+- Create Discord bot skeleton
+- Configure database connection
+
+### Tasks
+1. **Install pipenv and create virtual environment**
+   - `pip install pipenv`
+   - `pipenv install Django djangorestframework discord.py yt-dlp PyNaCl requests django-mssql-backend pyodbc python-decouple`
+   - `pipenv shell`
+
+2. **Verify Django project structure**
+   - Check `manage.py` exists in root
+   - Verify `DiscordBot/` settings folder exists
+   - Check existing `db.sqlite3` file
+
+3. **Update Django settings.py** (`DiscordBot/settings.py`)
+   - Add `'rest_framework'` to `INSTALLED_APPS`
+   - Add `'queue_api'` to `INSTALLED_APPS`
+   - Configure REST_FRAMEWORK settings:
+   ```python
+   REST_FRAMEWORK = {
+       'DEFAULT_RENDERER_CLASSES': [
+           'rest_framework.renderers.JSONRenderer',
+       ],
+       'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+       'PAGE_SIZE': 50
+   }
+   ```
+
+4. **Configure MSSQL database** (Optional - for MSSQL setup)
+   - Create MSSQL database: `DiscordMusicBot`
+   - Update `DATABASES` in settings.py:
+   ```python
+   DATABASES = {
+       'default': {
+           'ENGINE': 'mssql',
+           'NAME': 'DiscordMusicBot',
+           'USER': 'sa',
+           'PASSWORD': 'your_password',
+           'HOST': 'localhost',
+           'PORT': '1433',
+           'OPTIONS': {
+               'driver': 'ODBC Driver 17 for SQL Server',
+               'isolation_level': 'READ_COMMITTED',
+           },
+       }
+   }
+   ```
+
+5. **Create queue_api Django app**
+   - `python manage.py startapp queue_api`
+
+6. **Create bot directory structure**
+   - Create `bot/` directory
+   - Create `bot/__init__.py`
+   - Create `bot/main.py` (entry point)
+   - Create `bot/api_client.py` (HTTP client)
+   - Create `bot/commands/` directory
+   - Create `bot/commands/__init__.py`
+
+7. **Create .env file**
+   ```
+   DISCORD_BOT_TOKEN=your_actual_token_here
+   DJANGO_SECRET_KEY=your_secret_key
+   MSSQL_SERVER=localhost
+   MSSQL_DATABASE=DiscordMusicBot
+   MSSQL_USER=sa
+   MSSQL_PASSWORD=your_password
+   ```
+
+8. **Create bot main file** (`bot/main.py`)
+   - Set up Discord intents
+   - Create bot instance with command prefix `/`
+   - Add `on_ready()` event handler
+   - Add cog loading system
+   - Create `main()` async function
+
+9. **Create test bot cog** (`bot/bot.py`)
+   - Create `MusicBot` class inheriting from `commands.Cog`
+   - Add `ping` command to test connectivity
+   - Add `hello` command
+
+10. **Run migrations**
+    - `python manage.py migrate`
+
+11. **Test Django server**
+    - `python manage.py runserver`
+    - Verify server runs on `http://localhost:8000`
+
+### Deliverables
+- ✅ Django project configured and running
+- ✅ `queue_api` app created and registered
+- ✅ MSSQL connection configured (or SQLite ready)
+- ✅ Bot directory structure created
+- ✅ Bot skeleton with test commands ready
+- ✅ `.env` file created with tokens
+
+### Time Estimate: 1-2 hours
+
+---
+
+## Day 2: Database Models & DRF Serializers
+
+### Objectives
+- Create Song and GuildQueue database models
+- Build DRF serializers for data validation
+- Set up basic API structure
+
+### Tasks
+1. **Create GuildQueue model** (`queue_api/models.py`)
+   - Create `GuildQueue` model with fields:
+     - `guild_id` (CharField, unique, indexed)
+     - `created_at` (DateTimeField, auto_now_add)
+     - `updated_at` (DateTimeField, auto_now)
+     - `is_playing` (BooleanField, default False)
+     - `current_song_index` (IntegerField, default 0)
+   - Add `__str__` method
+   - Add `Meta` class with ordering
+
+2. **Create Song model** (`queue_api/models.py`)
+   - Create `Song` model with fields:
+     - `queue` (ForeignKey to GuildQueue)
+     - `title` (CharField)
+     - `url` (URLField)
+     - `added_by` (CharField)
+     - `position` (IntegerField)
+     - `duration` (IntegerField, nullable)
+     - `added_at` (DateTimeField, auto_now_add)
+   - Add `__str__` method
+   - Add `Meta` class with ordering and unique_together constraint
+
+3. **Create SongSerializer** (`queue_api/serializers.py`)
+   - Create `ModelSerializer` for Song
+   - Include fields: id, title, url, added_by, position, duration, added_at
+   - Mark `id` and `added_at` as read_only
+
+4. **Create GuildQueueSerializer** (`queue_api/serializers.py`)
+   - Create `ModelSerializer` for GuildQueue
+   - Include nested `songs` (many=True, read_only)
+   - Include fields: id, guild_id, is_playing, current_song_index, songs, created_at, updated_at
+   - Mark `id`, `created_at`, `updated_at` as read_only
+
+5. **Register models in admin** (`queue_api/admin.py`)
+   - Register `GuildQueue` model
+   - Register `Song` model
+   - Set list_display for each model
+
+6. **Create and run migrations**
+   - `python manage.py makemigrations queue_api`
+   - `python manage.py migrate`
+
+7. **Test models via Django shell**
+   - `python manage.py shell`
+   - Create test GuildQueue and Song instances
+   - Verify serializers work correctly
+
+### Deliverables
+- ✅ GuildQueue and Song models created
+- ✅ Models registered in Django admin
+- ✅ Serializers created and tested
+- ✅ Database migrations completed
+- ✅ Models accessible via Django admin interface
+
+### Time Estimate: 1-2 hours
+
+---
+
+## Day 3: REST API Endpoints & ViewSets
+
+### Objectives
+- Create ViewSets for Song and GuildQueue
+- Configure DRF router for URL routing
+- Build API endpoints for queue management
+
+### Tasks
+1. **Create GuildQueueViewSet** (`queue_api/views.py`)
+   - Inherit from `viewsets.ModelViewSet`
+   - Set `queryset = GuildQueue.objects.all()`
+   - Set `serializer_class = GuildQueueSerializer`
+   - Set `lookup_field = 'guild_id'`
+   - Add custom action `add_song()` (POST):
+     - Calculate position
+     - Save song to queue
+     - Return 201 with song data
+   - Add custom action `current_song()` (GET):
+     - Return currently playing song
+     - Return 404 if none playing
+   - Add custom action `next_song()` (POST):
+     - Increment current_song_index
+     - Save queue
+
+2. **Create SongViewSet** (`queue_api/views.py`)
+   - Inherit from `viewsets.ModelViewSet`
+   - Set `queryset = Song.objects.all()`
+   - Set `serializer_class = SongSerializer`
+   - Override `destroy()` method:
+     - Delete song
+     - Reorder remaining songs
+     - Return 204
+
+3. **Configure routing** (`queue_api/urls.py`)
+   - Import `DefaultRouter` from rest_framework
+   - Create router instance
+   - Register `GuildQueueViewSet` as 'queues'
+   - Register `SongViewSet` as 'songs'
+   - Include router URLs at `api/` prefix
+
+4. **Update main URLs** (`DiscordBot/urls.py`)
+   - Import include from django.urls
+   - Add path for `api/v1/` including queue_api URLs
+
+5. **Test all endpoints with Postman/curl**
+   - GET `/api/v1/queues/` - List all queues
+   - POST `/api/v1/queues/` - Create new queue
+   - GET `/api/v1/queues/{guild_id}/` - Get specific queue
+   - POST `/api/v1/queues/{guild_id}/add_song/` - Add song to queue
+   - GET `/api/v1/queues/{guild_id}/current_song/` - Get current song
+   - POST `/api/v1/queues/{guild_id}/next_song/` - Advance to next song
+   - DELETE `/api/v1/songs/{id}/` - Delete song
+
+### Deliverables
+- ✅ ViewSets created and working
+- ✅ All API endpoints functional
+- ✅ Custom actions responding correctly
+- ✅ HTTP status codes correct
+- ✅ Endpoints tested via Postman
+
+### Time Estimate: 2-3 hours
+
+---
+
+## Day 4: Discord Bot - API Integration & Queue Commands
+
+### Objectives
+- Connect bot to Django REST API
+- Implement queue management commands
+- Enable bot to add/remove songs from database
+
+### Tasks
+1. **Create API client** (`bot/api_client.py`)
+   - Create `APIClient` class
+   - Set base URL to `http://localhost:8000/api/v1`
+   - Add methods:
+     - `get_queue(guild_id)` - Fetch queue via GET
+     - `create_queue(guild_id)` - Create new queue via POST
+     - `add_song(guild_id, title, url, added_by)` - Add song via POST
+     - `delete_song(song_id)` - Delete song via DELETE
+     - `next_song(guild_id)` - Advance queue via POST
+   - Handle HTTP errors gracefully
+
+2. **Create queue commands cog** (`bot/commands/queue_commands.py`)
+   - Create `QueueCommands` class inheriting from `commands.Cog`
+   - Initialize with bot and APIClient
+   - Add `/play` command:
+     - Get or create guild queue
+     - Call `add_song()` via API
+     - Confirm addition to Discord
+   - Add `/queue` command:
+     - Fetch queue from API
+     - Display songs in Discord embed
+     - Show first 10 songs with "more" indicator
+   - Add `/nowplaying` command:
+     - Get current song from queue
+     - Display in embeds format
+   - Add `/skip` command:
+     - Call `next_song()` via API
+     - Confirm skip in Discord
+
+3. **Create voice commands cog** (`bot/commands/voice_commands.py`)
+   - Create `VoiceCommands` class
+   - Add `/join` command:
+     - Check author is in voice channel
+     - Join channel
+     - Confirm in Discord
+   - Add `/leave` command:
+     - Disconnect from voice
+     - Confirm departure
+   - Add `/stop` command:
+     - Stop audio playback
+     - Confirm stop
+
+4. **Configure cog loading in bot/main.py**
+   - Update `load_cogs()` to load all cogs from bot/commands/
+
+5. **Test bot commands in Discord**
+   - Invite bot to test server
+   - Test `/ping` command
+   - Test `/play` with a song
+   - Test `/queue` command
+   - Test `/nowplaying` command
+   - Test `/join` and `/leave` commands
+
+### Deliverables
+- ✅ API client working and connected
+- ✅ Queue commands functional in Discord
+- ✅ Songs can be added via bot
+- ✅ Queue viewable via Discord
+- ✅ Voice commands responding
+- ✅ Data persisting in database
+
+### Time Estimate: 2-3 hours
+
+---
+
+## Day 5: Voice Channel Audio Playback
+
+### Objectives
+- Implement YouTube audio extraction
+- Add audio playback to voice channels
+- Create advanced queue management
+
+### Tasks
+1. **Create voice playback handler** (`bot/commands/voice_commands.py`)
+   - Import yt_dlp for audio extraction
+   - Create `extract_audio_url()` method:
+     - Use yt_dlp to fetch video info
+     - Extract audio stream URL
+     - Return URL and title
+   - Add options for best audio format
+   - Handle errors gracefully
+
+2. **Implement audio playback** (`bot/commands/voice_commands.py`)
+   - Add `/play` command with audio:
+     - Extract audio from URL
+     - Create FFmpeg source
+     - Play in voice channel
+     - Handle playback errors
+   - Add after-playback handler to skip to next song automatically
+
+3. **Create queue manager** (`bot/queue_manager.py`)
+   - Create `QueueManager` class
+   - Add methods:
+     - `play_next(ctx, guild_id)` - Play next song in queue
+     - `auto_advance(guild_id)` - Move to next after playback
+     - `now_playing` tracking
+   - Handle queue end scenarios
+
+4. **Add enhanced commands** (`bot/commands/queue_commands.py`)
+   - Add `/remove <position>` command:
+     - Remove song at specific position
+     - Reorder remaining songs
+     - Confirm removal
+   - Add `/clear` command:
+     - Clear entire queue
+     - Confirm clear
+
+5. **Test audio playback**
+   - Test `/join` → `/play` → audio plays
+   - Test `/skip` → next song plays
+   - Test `/stop` → stops playback
+   - Test queue auto-advance
+
+### Deliverables
+- ✅ YouTube audio extraction working
+- ✅ Bot plays audio in voice channels
+- ✅ Queue advances automatically
+- ✅ Songs skip correctly
+- ✅ `/remove` and `/clear` commands work
+- ✅ Error handling in place
+
+### Time Estimate: 2-3 hours
+
+---
+
+## Day 6: Frontend Dashboard - HTML, CSS & Structure
+
+### Objectives
+- Create web interface for queue management
+- Build responsive dashboard layout
+- Implement Django templates
+
+### Tasks
+1. **Create templates directory**
+   - Create `queue_api/templates/queue_api/`
+
+2. **Create base template** (`queue_api/templates/queue_api/base.html`)
+   - HTML5 structure
+   - Add meta viewport for responsiveness
+   - Include CSS from static files
+   - Create navbar/header section
+   - Create main content container
+   - Include footer
+
+3. **Create queue display template** (`queue_api/templates/queue_api/queue.html`)
+   - Extend base.html
+   - Add title "🎵 Music Queue"
+   - Create now-playing section
+   - Add song input form:
+     - Text input for song/URL
+     - Add button
+   - Create queue list container:
+     - Display each song with position
+     - Show added_by information
+     - Add delete button for each song
+   - Display empty state if no songs
+
+4. **Create homepage template** (`queue_api/templates/queue_api/index.html`)
+   - List all active queues
+   - Quick links to each guild's queue
+   - Display queue sizes
+
+5. **Create CSS file** (`queue_api/static/queue_api/css/style.css`)
+   - CSS variables for colors, spacing, fonts
+   - Flexbox/Grid layouts
+   - Header styling
+   - Card styling for songs
+   - Button styling
+   - Form input styling
+   - Responsive breakpoints (mobile, tablet, desktop)
+   - Loading spinner animation
+   - Error message styling
+
+6. **Configure Django static files**
+   - Verify `STATIC_URL = '/static/'` in settings
+   - Create `static/` directory structure
+
+7. **Create frontend views** (`queue_api/views_frontend.py`)
+   - Create `queue_detail(request, guild_id)` view
+   - Create `index(request)` view for homepage
+
+8. **Add frontend URLs** (`queue_api/urls.py`)
+   - Add path for `queue_detail` view
+   - Add path for `index` view
+
+### Deliverables
+- ✅ Dashboard accessible at `/`
+- ✅ Queue detail page accessible at `/queue/<guild_id>/`
+- ✅ Responsive design works on desktop
+- ✅ Clean, modern UI styling
+- ✅ All elements visible and functional
+
+### Time Estimate: 2-3 hours
+
+---
+
+## Day 7: Frontend JavaScript & Polish
+
+### Objectives
+- Implement JavaScript for dynamic interactions
+- Add song management functionality
+- Complete final testing and deployment prep
+
+### Tasks
+1. **Create JavaScript application** (`queue_api/static/queue_api/js/app.js`)
+   - Create `APIClient` class (fetch-based):
+     - `addSong(guildId, title, url, addedBy)` 
+     - `deleteSong(songId)`
+     - `getQueue(guildId)`
+   - Create event listeners:
+     - Song input form submission
+     - Delete button clicks
+     - Page load initialization
+   - Implement debouncing for inputs
+
+2. **Add DOM manipulation**
+   - Create function to render song list
+   - Create function to add song to DOM
+   - Create function to remove song from DOM
+   - Update queue display dynamically
+
+3. **Implement error handling**
+   - Display user-friendly error messages
+   - Add retry functionality
+   - Handle network failures
+
+4. **Add loading states**
+   - Show loading spinner during requests
+   - Disable buttons during operations
+   - Clear loading state on completion
+
+5. **Create README.md**
+   - Setup instructions
+   - Command list
+   - API endpoints documentation
+   - Project architecture diagram
+   - Technology stack
+   - Deployment instructions
+
+6. **Final testing**
+   - Test adding songs via web interface
+   - Test deleting songs via web interface
+   - Test bot commands in Discord
+   - Test audio playback
+   - Test on mobile browser
+   - Test error scenarios
+   - Verify all endpoints working
+
+7. **Cleanup and polish**
+   - Remove console.log debug statements
+   - Add code comments for complex logic
+   - Check for console errors
+   - Verify no broken links
+   - Test all buttons and forms
+   - Optimize CSS/JS files
+
+### Deliverables
+- ✅ Dashboard fully functional
+- ✅ Songs can be added via web form
+- ✅ Songs can be deleted via web interface
+- ✅ Real-time updates to queue display
+- ✅ Error handling and user feedback
+- ✅ README with setup instructions
+- ✅ All features tested and working
+
+### Time Estimate: 3-4 hours
+
+---
+
+## Post-Implementation Checklist
+
+- [ ] Django server runs without errors: `python manage.py runserver`
+- [ ] Bot connects to Discord and responds to commands
+- [ ] All API endpoints tested with Postman or curl
+- [ ] Database models created and migrated
+- [ ] Queue commands working in Discord (/play, /queue, /skip, etc.)
+- [ ] Voice commands working (/join, /leave, /stop)
+- [ ] Audio playback working in voice channels
+- [ ] Frontend dashboard loads at `http://localhost:8000/`
+- [ ] Can add songs via web interface
+- [ ] Can delete songs via web interface
+- [ ] Queue persists in database after bot restart
+- [ ] Responsive design works on mobile
+- [ ] No console errors in browser
+- [ ] Error messages display properly
+- [ ] Loading states appear during operations
+- [ ] README.md complete with setup instructions
+- [ ] .env file configured with all tokens
+- [ ] Code is clean and commented
+- [ ] No hardcoded secrets in code
+
+---
+
+## Optional Enhancements (If Time Permits)
+
+- Add user authentication to dashboard
+- Implement song search with YouTube API
+- Add user account system with favorite queues
+- Create admin panel to moderate queues
+- Add statistics/analytics dashboard
+- Implement real-time queue updates with WebSockets
+- Add queue shuffling and repeat modes
+- Create mobile app (React Native)
+- Deploy to cloud (Heroku, Railway, Render)
+- Add automated testing (pytest, Discord.py test framework)
+- Implement caching for performance
+- Add rate limiting to API endpoints
+- Create command prefix customization per server
+- Add song preview/duration display
+- Implement persistent user profiles
+
+---
+
+## Notes
+
+- **Environment**: Always activate pipenv shell before running commands: `pipenv shell`
+- **Bot Token**: Never commit `.env` file to git. Add to `.gitignore`
+- **Database**: Configure MSSQL connection in `settings.py` before running migrations
+- **Discord Setup**: 
+  1. Go to Discord Developer Portal
+  2. Create Application
+  3. Create Bot user
+  4. Copy token to `.env`
+  5. Enable "Message Content Intent" under Privileged Gateway Intents
+  6. Invite bot to test server with OAuth2 URL generator
+- **FFmpeg**: Ensure FFmpeg is installed and in PATH for audio playback
+- **Testing**: Test API endpoints with Postman before connecting frontend
+- **Development**: Run Django and bot in separate terminals
+  - Terminal 1: `python manage.py runserver`
+  - Terminal 2: `python bot/main.py`
+- **Static Files**: For production, run `python manage.py collectstatic`
+- **Debugging**: Enable Django debug mode in settings.py during development only
+- **Error Logs**: Check terminal output for both Django and bot for debugging
+- **Migrations**: Always run `python manage.py migrate` after model changes
+- **Admin Panel**: Access at `http://localhost:8000/admin/` after creating superuser

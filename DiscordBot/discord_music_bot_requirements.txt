@@ -1,0 +1,83 @@
+
+Discord Music Bot Project Requirements
+======================================
+
+Core Technologies
+-----------------
+- Python 3.11+
+- Django
+- Django REST Framework
+- discord.py
+- yt-dlp
+- PyNaCl
+- requests
+
+Optional Frontend
+-----------------
+- Django templates
+- Vanilla JavaScript
+
+System Requirements
+-------------------
+- FFmpeg installed and added to PATH
+- Discord account
+- Discord server for testing
+
+Python Packages
+----------------
+pip install django
+pip install djangorestframework
+pip install discord.py
+pip install yt-dlp
+pip install PyNaCl
+pip install requests
+pip install mssql-django
+pip install python-decouple
+
+Suggested Project Structure
+----------------------------
+
+musicbot_project/
+
+├── backend/
+│   ├── manage.py
+│   ├── musicbot_backend/
+│   └── queue_api/
+│
+├── bot/
+│   ├── bot.py
+│   └── commands/
+│
+├── frontend/
+│
+└── requirements.txt
+
+Minimum Features
+----------------
+- Bot joins voice channels
+- Bot queues songs
+- Persistent queue storage
+- REST API endpoints
+- Queue retrieval
+- Song removal
+- Basic frontend queue display
+
+Recommended Tools
+-----------------
+- Postman
+- VS Code
+- SQLite (initially)
+- PostgreSQL (optional)
+
+Discord Developer Setup
+-----------------------
+1. Create application in Discord Developer Portal
+2. Create bot
+3. Copy token
+4. Enable message content intent
+5. Invite bot to server
+
+Deployment Options
+------------------
+- Render
+- Railway
