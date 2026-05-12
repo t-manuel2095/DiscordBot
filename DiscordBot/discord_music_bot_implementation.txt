@@ -3,7 +3,7 @@
 
 ---
 
-## Day 1: Project Setup & Django Configuration
+## Day 1: Project Setup & Django Configuration (COMPLETE)
 
 ### Objectives
 - Initialize Django project structure
@@ -108,7 +108,7 @@
 
 ---
 
-## Day 2: Database Models & DRF Serializers
+## Day 2: Database Models & DRF Serializers (COMPLETE)
 
 ### Objectives
 - Create Song and GuildQueue database models
@@ -174,7 +174,7 @@
 
 ---
 
-## Day 3: REST API Endpoints & ViewSets
+## Day 3: REST API Endpoints & ViewSets(CURRENT)
 
 ### Objectives
 - Create ViewSets for Song and GuildQueue
