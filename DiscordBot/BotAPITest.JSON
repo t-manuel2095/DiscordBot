@@ -1,0 +1,206 @@
+{
+    "_type": "export",
+    "__export_format": 4,
+    "__export_date": "2026-05-13T15:57:00.000Z",
+    "__export_source": "insomnia.desktop.app:v2023.5.8",
+    "resources": [
+        {
+            "_id": "wrk_discordbot",
+            "_type": "workspace",
+            "parentId": null,
+            "modified": 1715606220000,
+            "created": 1715606220000,
+            "name": "DiscordBot API Tests",
+            "description": "Testing Queue API endpoints",
+            "scope": "workspace"
+        },
+        {
+            "_id": "env_base",
+            "_type": "environment",
+            "parentId": "wrk_discordbot",
+            "modified": 1715606220000,
+            "created": 1715606220000,
+            "name": "Base Environment",
+            "data": {
+                "base_url": "http://localhost:8000/api/v1"
+            },
+            "dataPropertyOrder": {
+                "&base_url": {}
+            },
+            "color": null,
+            "isPrivate": false,
+            "metaSortKey": 1715606220000
+        },
+        {
+            "_id": "fld_queue_tests",
+            "_type": "request_group",
+            "parentId": "wrk_discordbot",
+            "modified": 1715606220000,
+            "created": 1715606220000,
+            "name": "Queue Endpoints",
+            "description": ""
+        },
+        {
+            "_id": "req_list_queues",
+            "_type": "request",
+            "parentId": "fld_queue_tests",
+            "modified": 1715606220000,
+            "created": 1715606220000,
+            "url": "{{ base_url }}/queues/",
+            "name": "GET - List all queues",
+            "description": "Retrieve all queues",
+            "method": "GET",
+            "body": {},
+            "parameters": [],
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "authentication": {},
+            "metaSortKey": 1
+        },
+        {
+            "_id": "req_create_queue",
+            "_type": "request",
+            "parentId": "fld_queue_tests",
+            "modified": 1715606220000,
+            "created": 1715606220000,
+            "url": "{{ base_url }}/queues/",
+            "name": "POST - Create new queue",
+            "description": "Create a new guild queue",
+            "method": "POST",
+            "body": {
+                "mimeType": "application/json",
+                "text": "{\n  \"guild_id\": 123456789,\n  \"current_song_index\": 0\n}"
+            },
+            "parameters": [],
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "authentication": {},
+            "metaSortKey": 2
+        },
+        {
+            "_id": "req_get_queue",
+            "_type": "request",
+            "parentId": "fld_queue_tests",
+            "modified": 1715606220000,
+            "created": 1715606220000,
+            "url": "{{ base_url }}/queues/123456789/",
+            "name": "GET - Get specific queue",
+            "description": "Get a specific queue by guild_id",
+            "method": "GET",
+            "body": {},
+            "parameters": [],
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "authentication": {},
+            "metaSortKey": 3
+        },
+        {
+            "_id": "req_add_song",
+            "_type": "request",
+            "parentId": "fld_queue_tests",
+            "modified": 1715606220000,
+            "created": 1715606220000,
+            "url": "{{ base_url }}/queues/123456789/add_song/",
+            "name": "POST - Add song to queue",
+            "description": "Add a new song to the queue",
+            "method": "POST",
+            "body": {
+                "mimeType": "application/json",
+                "text": "{\n  \"title\": \"Song Title\",\n  \"artist\": \"Artist Name\",\n  \"duration\": 180,\n  \"url\": \"https://example.com/song.mp3\"\n}"
+            },
+            "parameters": [],
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "authentication": {},
+            "metaSortKey": 4
+        },
+        {
+            "_id": "req_current_song",
+            "_type": "request",
+            "parentId": "fld_queue_tests",
+            "modified": 1715606220000,
+            "created": 1715606220000,
+            "url": "{{ base_url }}/queues/123456789/current_song/",
+            "name": "GET - Get current song",
+            "description": "Get the currently playing song",
+            "method": "GET",
+            "body": {},
+            "parameters": [],
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "authentication": {},
+            "metaSortKey": 5
+        },
+        {
+            "_id": "req_next_song",
+            "_type": "request",
+            "parentId": "fld_queue_tests",
+            "modified": 1715606220000,
+            "created": 1715606220000,
+            "url": "{{ base_url }}/queues/123456789/next_song/",
+            "name": "POST - Advance to next song",
+            "description": "Advance the queue to the next song",
+            "method": "POST",
+            "body": {},
+            "parameters": [],
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "authentication": {},
+            "metaSortKey": 6
+        },
+        {
+            "_id": "fld_song_tests",
+            "_type": "request_group",
+            "parentId": "wrk_discordbot",
+            "modified": 1715606220000,
+            "created": 1715606220000,
+            "name": "Song Endpoints",
+            "description": ""
+        },
+        {
+            "_id": "req_delete_song",
+            "_type": "request",
+            "parentId": "fld_song_tests",
+            "modified": 1715606220000,
+            "created": 1715606220000,
+            "url": "{{ base_url }}/songs/1/",
+            "name": "DELETE - Delete song",
+            "description": "Delete a song by ID",
+            "method": "DELETE",
+            "body": {},
+            "parameters": [],
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "authentication": {},
+            "metaSortKey": 7
+        }
+    ]
+}

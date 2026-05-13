@@ -79,9 +79,15 @@ WSGI_APPLICATION = 'DiscordBot.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
-    }
+        'ENGINE': 'mssql',
+        'NAME': 'discordbot',
+        'HOST': 'DESKTOP-AB3PKMH\\SQLEXPRESS01',
+        'USER': 'mt',
+        'PASSWORD': 'nfltop100',
+        'OPTIONS': {
+            'driver': 'ODBC Driver 17 for SQL Server',
+        }
+    },
 }
 
 # Password validation

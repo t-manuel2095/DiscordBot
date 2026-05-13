@@ -44,6 +44,7 @@
     <Compile Include="queue_api\admin.py" />
     <Compile Include="queue_api\migrations\__init__.py" />
     <Compile Include="queue_api\models.py" />
+    <Compile Include="queue_api\serializers.py" />
     <Compile Include="queue_api\tests.py" />
     <Compile Include="queue_api\views.py" />
     <Compile Include="queue_api\__init__.py" />

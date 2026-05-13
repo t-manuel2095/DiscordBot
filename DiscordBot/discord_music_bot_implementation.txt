@@ -174,7 +174,7 @@
 
 ---
 
-## Day 3: REST API Endpoints & ViewSets(CURRENT)
+## Day 3: REST API Endpoints & ViewSets (COMPLETE)
 
 ### Objectives
 - Create ViewSets for Song and GuildQueue
@@ -232,13 +232,77 @@
 - ✅ All API endpoints functional
 - ✅ Custom actions responding correctly
 - ✅ HTTP status codes correct
-- ✅ Endpoints tested via Postman
+- ✅ Endpoints tested via Insomnia
 
 ### Time Estimate: 2-3 hours
 
 ---
 
-## Day 4: Discord Bot - API Integration & Queue Commands
+## Day 4: Database Configuration & URL Normalization (COMPLETE)
+
+### Objectives
+- Switch from SQLite3 to MSSQL Server
+- Implement YouTube URL normalization
+- Complete API endpoint testing
+
+### Tasks
+1. **Switch to MSSQL Database**
+   - Update `DiscordBot/settings.py` DATABASES configuration:
+   ```python
+   DATABASES = {
+       'default': {
+           'ENGINE': 'mssql',
+           'NAME': 'reservations',
+           'HOST': 'DESKTOP-AB3PKMH\\SQLEXPRESS01',
+           'USER': 'mt',
+           'PASSWORD': 'nfltop100',
+       }
+   }
+   ```
+   - Run migrations: `python manage.py migrate`
+   - Verify all 18 migrations apply successfully
+
+2. **Implement YouTube URL Normalization** (`queue_api/serializers.py`)
+   - Add `normalize_youtube_url()` function:
+     - Accepts: `https://youtube.com/watch?v=ID`, `youtu.be/ID`, `youtube.com/watch?v=ID`, just `ID`
+     - Returns: Standardized `https://www.youtube.com/watch?v=VIDEO_ID`
+   - Add regex patterns for multiple YouTube URL formats
+   - Update `SongSerializer`:
+     - Add `to_internal_value()` method
+     - Normalize URL before field validation
+   - Add validation error handling for invalid URLs
+
+3. **Fix Serializer Read-Only Fields** (`queue_api/serializers.py`)
+   - Mark `queue` and `position` as read_only in `SongSerializer`
+   - Reason: These are set automatically by the `add_song()` view
+
+4. **Test Complete API Flow with Insomnia**
+   - Create Insomnia environment with base_url variable
+   - Test all 7 endpoints in order:
+     1. POST - Create new queue (guild_id: 123456789)
+     2. GET - Get specific queue
+     3. POST - Add song (test all 3 URL formats):
+        - Standard: `https://www.youtube.com/watch?v=ID`
+        - Shortened: `https://youtu.be/ID`
+        - No protocol: `youtube.com/watch?v=ID`
+     4. GET - Get current song
+     5. POST - Advance to next song
+     6. (Optional) DELETE - Delete song
+   - Verify URL normalization works for all formats
+   - Confirm all responses return correct data
+
+### Deliverables
+- ✅ MSSQL database connected and migrated
+- ✅ YouTube URL normalization working for all formats
+- ✅ Serializer correctly handles automatic fields
+- ✅ All 7 API endpoints tested and working in Insomnia
+- ✅ Songs stored with standardized URLs
+
+### Time Estimate: 1-2 hours
+
+---
+
+## Day 5: Discord Bot - API Integration & Queue Commands (CURRENT)
 
 ### Objectives
 - Connect bot to Django REST API
@@ -311,12 +375,86 @@
 
 ---
 
-## Day 5: Voice Channel Audio Playback
+## Day 5: Discord Bot - API Integration & Queue Commands
 
 ### Objectives
-- Implement YouTube audio extraction
+- Connect bot to Django REST API
+- Implement queue management commands
+- Enable bot to add/remove songs from database
+
+### Tasks
+1. **Create API client** (`bot/api_client.py`)
+   - Create `APIClient` class
+   - Set base URL to `http://localhost:8000/api/v1`
+   - Add methods:
+     - `get_queue(guild_id)` - Fetch queue via GET
+     - `create_queue(guild_id)` - Create new queue via POST
+     - `add_song(guild_id, title, url, added_by)` - Add song via POST
+     - `delete_song(song_id)` - Delete song via DELETE
+     - `next_song(guild_id)` - Advance queue via POST
+   - Handle HTTP errors gracefully
+
+2. **Create queue commands cog** (`bot/commands/queue_commands.py`)
+   - Create `QueueCommands` class inheriting from `commands.Cog`
+   - Initialize with bot and APIClient
+   - Add `/play <youtube_url>` command:
+     - Accept YouTube URLs (any format)
+     - Get or create guild queue (using Discord guild_id)
+     - Call `add_song()` via API
+     - Confirm addition to Discord
+   - Add `/queue` command:
+     - Fetch queue from API
+     - Display songs in Discord embed
+     - Show first 10 songs with "more" indicator
+   - Add `/nowplaying` command:
+     - Get current song from queue
+     - Display in embeds format
+   - Add `/skip` command:
+     - Call `next_song()` via API
+     - Confirm skip in Discord
+
+3. **Create voice commands cog** (`bot/commands/voice_commands.py`)
+   - Create `VoiceCommands` class
+   - Add `/join` command:
+     - Check author is in voice channel
+     - Join channel
+     - Confirm in Discord
+   - Add `/leave` command:
+     - Disconnect from voice
+     - Confirm departure
+   - Add `/stop` command:
+     - Stop audio playback
+     - Confirm stop
+
+4. **Configure cog loading in bot/main.py**
+   - Update `load_cogs()` to load all cogs from bot/commands/
+
+5. **Test bot commands in Discord**
+   - Invite bot to test server
+   - Test `/ping` command
+   - Test `/play` with a song
+   - Test `/queue` command
+   - Test `/nowplaying` command
+   - Test `/join` and `/leave` commands
+
+### Deliverables
+- ✅ API client working and connected
+- ✅ Queue commands functional in Discord
+- ✅ Songs can be added via bot
+- ✅ Queue viewable via Discord
+- ✅ Voice commands responding
+- ✅ Data persisting in database
+
+### Time Estimate: 2-3 hours
+
+---
+
+## Day 6: Voice Channel Audio Playback & Auto-Play
+
+### Objectives
+- Implement YouTube audio extraction with yt_dlp
 - Add audio playback to voice channels
-- Create advanced queue management
+- Create automatic queue progression
 
 ### Tasks
 1. **Create voice playback handler** (`bot/commands/voice_commands.py`)
@@ -324,27 +462,61 @@
    - Create `extract_audio_url()` method:
      - Use yt_dlp to fetch video info
      - Extract audio stream URL
-     - Return URL and title
+     - Return URL and title and duration
    - Add options for best audio format
    - Handle errors gracefully
 
 2. **Implement audio playback** (`bot/commands/voice_commands.py`)
-   - Add `/play` command with audio:
-     - Extract audio from URL
+   - Update `/play` command to include audio playback:
+     - Extract audio from URL using yt_dlp
      - Create FFmpeg source
      - Play in voice channel
      - Handle playback errors
-   - Add after-playback handler to skip to next song automatically
+   - Add after-playback handler to auto-advance to next song
 
 3. **Create queue manager** (`bot/queue_manager.py`)
    - Create `QueueManager` class
    - Add methods:
      - `play_next(ctx, guild_id)` - Play next song in queue
      - `auto_advance(guild_id)` - Move to next after playback
-     - `now_playing` tracking
-   - Handle queue end scenarios
+     - `get_now_playing(guild_id)` - Track currently playing song
+   - Handle queue end scenarios (loop or stop)
 
-4. **Add enhanced commands** (`bot/commands/queue_commands.py`)
+4. **Auto-Play Implementation**
+   - On `/play` command:
+     - If queue is empty: immediately play the song
+     - If queue has songs: add to queue and wait for current song to finish
+   - After song finishes: automatically play next song in queue
+   - When queue is empty: stop playback and confirm
+
+5. **Test audio playback**
+   - Test `/join` → `/play` → audio plays
+   - Test `/skip` → next song plays
+   - Test `/stop` → stops playback
+   - Test queue auto-advance
+   - Test adding multiple songs and auto-progression
+
+### Deliverables
+- ✅ YouTube audio extraction working
+- ✅ Bot plays audio in voice channels
+- ✅ Queue auto-advances after song finishes
+- ✅ Songs skip correctly
+- ✅ Multiple songs play in sequence automatically
+- ✅ Error handling in place
+
+### Time Estimate: 2-3 hours
+
+---
+
+## Day 7: Enhanced Commands & Queue Management
+
+### Objectives
+- Add advanced queue management commands
+- Implement queue control features
+- Test complete bot functionality
+
+### Tasks
+1. **Add enhanced commands** (`bot/commands/queue_commands.py`)
    - Add `/remove <position>` command:
      - Remove song at specific position
      - Reorder remaining songs
@@ -352,26 +524,41 @@
    - Add `/clear` command:
      - Clear entire queue
      - Confirm clear
+   - Add `/queue list` option:
+     - Show full queue with positions
+     - Show currently playing song highlight
 
-5. **Test audio playback**
+2. **Implement queue persistence**
+   - Verify songs stay in database after bot restart
+   - Test queue recovery on bot reconnect
+
+3. **Error handling and user feedback**
+   - Handle empty queue scenarios
+   - Handle user not in voice channel
+   - Handle invalid YouTube URLs gracefully
+   - Provide helpful error messages in Discord
+
+4. **Complete testing**
    - Test `/join` → `/play` → audio plays
    - Test `/skip` → next song plays
    - Test `/stop` → stops playback
-   - Test queue auto-advance
+   - Test `/remove <position>` command
+   - Test `/clear` command
+   - Test bot restart and queue persistence
+   - Test error scenarios
 
 ### Deliverables
-- ✅ YouTube audio extraction working
-- ✅ Bot plays audio in voice channels
-- ✅ Queue advances automatically
-- ✅ Songs skip correctly
-- ✅ `/remove` and `/clear` commands work
-- ✅ Error handling in place
+- ✅ All queue management commands working
+- ✅ Queue persists across bot restarts
+- ✅ Error handling complete
+- ✅ User feedback for all operations
+- ✅ All features tested and working
 
 ### Time Estimate: 2-3 hours
 
 ---
 
-## Day 6: Frontend Dashboard - HTML, CSS & Structure
+## Day 8: Frontend Dashboard - HTML, CSS & Structure (OPTIONAL)
 
 ### Objectives
 - Create web interface for queue management
@@ -442,7 +629,7 @@
 
 ---
 
-## Day 7: Frontend JavaScript & Polish
+## Day 9: Frontend JavaScript & Polish (OPTIONAL)
 
 ### Objectives
 - Implement JavaScript for dynamic interactions
@@ -512,8 +699,6 @@
 - ✅ All features tested and working
 
 ### Time Estimate: 3-4 hours
-
----
 
 ## Post-Implementation Checklist
 

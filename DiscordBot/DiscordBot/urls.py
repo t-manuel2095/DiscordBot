@@ -1,10 +1,11 @@
 """
 Definition of urls for DiscordBot.
 """
-from django.urls import path
+from django.urls import path, include
 from django.contrib import admin
 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/v1/', include('queue_api.urls')),
 ]
