@@ -29,15 +29,21 @@ class APIClient:
     async def add_song(self, guild_id, title, url, added_by):
         """Add song to queue"""
         async with aiohttp.ClientSession() as session:
-            url = f'{self.base_url}/queues/{guild_id}/add_song/'
+            endpoint = f'{self.base_url}/queues/{guild_id}/add_song/'
             data = {
                 'title': title,
                 'url': url,
                 'added_by': added_by
             }
-            async with session.post(url, json=data) as response:
+            print(f'[*] API: Posting to {endpoint}')
+            print(f'[*] API: URL in request: {url[:80] if url else "None"}...')
+            async with session.post(endpoint, json=data) as response:
                 if response.status == 201:
-                    return await response.json()
+                    result = await response.json()
+                    print(f'[+] API: Song stored with URL: {result.get("url", "")[:80]}...')
+                    return result
+                else:
+                    print(f'[-] API: Error {response.status}')
                 return None
     
     async def delete_song(self, song_id):

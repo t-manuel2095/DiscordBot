@@ -18,7 +18,7 @@ class GuildQueue(models.Model):
 class Song(models.Model):
     queue = models.ForeignKey(GuildQueue, on_delete=models.CASCADE, related_name='songs')
     title = models.CharField(max_length=255)
-    url = models.URLField()
+    url = models.TextField()  # Changed from URLField to TextField to support long audio stream URLs
     added_by = models.CharField(max_length=255)
     position = models.IntegerField()
     duration = models.IntegerField(null=True, blank=True)

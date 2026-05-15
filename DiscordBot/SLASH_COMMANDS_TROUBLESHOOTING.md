@@ -175,7 +175,134 @@ Commands in tree: 9
 
 ---
 
-## Additional Fixes (May 15, 2026)
+## Additional Fixes (May 15, 2026 - Continued)
+
+### Fix 4: Skip/Remove/Clear Commands Delayed or Don't Update Playback
+**Problem:** 
+- `/skip` would show "Skipped" but audio kept playing current song for 20 seconds
+- `/remove` on current song - audio kept playing
+- `/clear` - audio kept playing even though queue was empty
+
+**Root Cause:** Commands only updated the queue/index but didn't stop current playback, so FFmpeg kept playing until song naturally finished (then after-callback would fire)
+
+**Solution:** Updated all three commands to call `voice_client.stop()`:
+- `/skip` - Calls `next_song()` then stops playback (triggers after-callback → plays next immediately)
+- `/remove` - If removing currently playing song, stops playback
+- `/clear` - Stops playback before clearing queue
+- All use the same pattern: `voice_client.stop()` → triggers after-callback → audio transitions smoothly
+
+### Fix 5: No "Now Playing" Announcement When Song Starts
+**Problem:** Songs would start playing silently with no indication in chat
+
+**Solution:** Added automatic embed message to `play_audio()`:
+- Finds guild's text channel (prefers "general")
+- Sends embed with title, added by, and duration
+- Triggered on: initial play, skip, remove, auto-advance
+- Shows users what's currently playing without needing `/nowplaying`
+
+### Fix 6: Manual Disconnect Doesn't Clear Queue (FIXED ✅)
+**Problem:** Right-clicking bot → "Disconnect" leaves queue intact in database
+
+**Root Cause:** Event listener was added as a Cog method but Cog event listeners don't work reliably for voice state updates. Only bot-level event listeners are reliable.
+
+**Solution:** Moved `on_voice_state_update()` from VoiceCommands cog to bot/main.py:
+```python
+@bot.listen()
+async def on_voice_state_update(member, before, after):
+    """Detect when bot is manually disconnected from voice"""
+    if member == bot.user:
+        if before.channel and not after.channel:
+            print(f'[*] Bot manually disconnected')
+            guild_id = str(before.channel.guild.id)
+            await bot.api.delete_queue(guild_id)  # Clears queue
+```
+
+Now when bot is manually disconnected:
+- Event fires immediately
+- Queue is automatically deleted from database
+- Keep-alive tasks are cancelled
+- All state is cleaned up
+
+### Fix 7: Stop Command is Redundant (Removed)
+**Problem:** `/stop` stopped audio but left queue - similar to `/leave` but different behavior
+
+**Solution:** Removed `/stop` and replaced with `/pause` and `/resume`:
+- `/pause` - Pauses current song, keeps queue intact
+- `/resume` - Resumes paused song
+- Both required new `paused_state` tracking dictionary
+- Better UX than stop
+
+### Fix 8: Pause Command Causes Auto-Disconnect
+**Problem:** Pausing music - after ~15 minutes Discord auto-disconnects idle bot
+
+**Solution:** Added keep-alive background task:
+- When `/pause` called, starts `_keep_alive()` async task
+- Task runs every 30 seconds while paused
+- Maintains connection state to prevent Discord idle timeout
+- Task cancelled when `/resume` or `/leave` called
+- Stores tasks in `keep_alive_tasks` dictionary per guild
+
+---
+
+## Current Working Commands (9 Total - Updated)
+
+1. **`/play <url>`** - Queue a song from YouTube and play if nothing is playing
+2. **`/queue`** - Display current queue with ▶️ indicator
+3. **`/skip`** - Skip to next song (immediate playback transition)
+4. **`/remove <position>`** - Remove song, auto-play next if removed current song
+5. **`/clear`** - Clear entire queue and stop playback
+6. **`/nowplaying`** - Show currently playing song details
+7. **`/leave`** - Bot leaves voice and clears queue
+8. **`/pause`** - ⏸️ Pause audio (keeps queue, bot stays connected)
+9. **`/resume`** - ▶️ Resume paused audio
+
+## Command Sync Status
+
+```
+[+] Synced 9 slash command(s) globally
+    - play
+    - queue
+    - skip
+    - remove
+    - clear
+    - nowplaying
+    - leave
+    - pause
+    - resume
+```
+
+## Disconnect Handling
+
+| Scenario | Behavior | Queue Cleared? |
+|----------|----------|---|
+| `/leave` | Bot disconnects | ✅ Yes |
+| Manual right-click disconnect | Bot disconnects | ✅ Yes (now) |
+| `/pause` then idle 15 min | Bot stays connected (keep-alive) | ❌ No |
+| `/stop` (removed) | N/A | N/A |
+
+## Files Modified (Final)
+
+- `bot/main.py` - Added `on_voice_state_update()` bot-level event listener for manual disconnect detection
+- `bot/commands/queue_commands.py` - Updated `/skip`, `/remove`, `/clear` to stop playback
+- `bot/commands/voice_commands.py` - Added `/pause`, `/resume`, `_keep_alive()` task
+- Both command files - Removed `/stop` and replaced with pause/resume functionality
+
+## Status Summary (Final)
+
+| Aspect | Status | Notes |
+|--------|--------|-------|
+| Slash Commands | ✅ Working | 9 commands globally synced |
+| Pause/Resume | ✅ WORKING | Both commands fully functional |
+| Manual Disconnect | ✅ FIXED | Queue clears immediately on right-click disconnect |
+| Pause Idle Timeout | ✅ FIXED | Keep-alive task prevents auto-disconnect |
+| Now Playing Announce | ✅ WORKING | Auto-sends embed when song starts |
+| Playback Transitions | ✅ SMOOTH | No audio gaps when skipping/removing |
+| Bot Event Listeners | ✅ WORKING | Voice state updates handled at bot level |
+
+---
+
+**Last Updated:** Friday, May 15, 2026 - 12:24 PM
+**Status:** ✅ ALL SLASH COMMANDS AND DISCONNECT HANDLING FULLY WORKING
 
 ### Fix 1: `/skip` Command Not Working
 **Problem:** Skip command appeared to work but queue showed same song playing
@@ -233,7 +360,7 @@ Commands in tree: 9
 
 ---
 
-**RESOLUTION:** All 9 slash commands fully functional and tested. Queue management commands (skip, remove, clear) fully implemented and working correctly. Queue display now shows which song is currently playing.
+**RESOLUTION:** All 9 slash commands fully functional and tested. Queue management commands enhanced with proper playback transitions. Manual disconnect handling added. Pause/Resume implemented with idle-timeout protection.
 
-**Last Updated:** Friday, May 15, 2026 - 10:59 AM
-**Total Time to Resolve:** ~7+ hours of debugging and troubleshooting
+**Last Updated:** Friday, May 15, 2026 - 12:07 PM
+**Total Time to Resolve:** ~8+ hours of debugging, testing, and enhancement

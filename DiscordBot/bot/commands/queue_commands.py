@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from bot.api_client import APIClient
+import asyncio
 
 #Created using Cursor
 
@@ -22,6 +23,22 @@ class QueueCommands(commands.Cog):
             
             print(f'[*] Guild ID: {guild_id}, User: {username}')
             
+            # Check if bot is in voice channel, if not auto-join user's channel
+            if not interaction.guild.voice_client:
+                if not interaction.user.voice:
+                    await interaction.followup.send('❌ You must be in a voice channel to play music')
+                    return
+                
+                channel = interaction.user.voice.channel
+                print(f'[*] Bot not in voice, auto-joining: {channel.name}')
+                try:
+                    await channel.connect()
+                    print(f'[+] Auto-joined {channel.name}')
+                except Exception as e:
+                    print(f'[-] Failed to auto-join: {e}')
+                    await interaction.followup.send(f'❌ Could not join voice channel: {str(e)}')
+                    return
+            
             # Extract song info from YouTube
             print(f'[*] Extracting song info from YouTube...')
             voice_cog = interaction.client.cogs.get('VoiceCommands')
@@ -32,9 +49,18 @@ class QueueCommands(commands.Cog):
                     return
                 title = song_info['title']
                 duration = song_info.get('duration', 0)
+                audio_url = song_info.get('url')  # Get the actual audio stream URL
+                
+                # Check if song is longer than 10 minutes (600 seconds)
+                if duration and duration > 600:
+                    minutes = duration // 60
+                    await interaction.followup.send(f'❌ Song is too long ({minutes} minutes). Maximum length is 10 minutes.')
+                    print(f'[-] Song rejected: Duration {minutes} minutes exceeds 10 minute limit')
+                    return
             else:
                 title = 'Song'
                 duration = 0
+                audio_url = url
             
             print(f'[*] Song title: {title}')
             
@@ -45,11 +71,12 @@ class QueueCommands(commands.Cog):
                 queue = await self.api.create_queue(guild_id)
             
             print(f'[*] Adding song to queue')
-            # Add song to queue with actual title
+            print(f'[*] Audio URL to send: {audio_url[:80] if audio_url else "None"}...')
+            # Add song to queue with actual title and audio stream URL
             song_data = await self.api.add_song(
                 guild_id,
                 title=title,
-                url=url,
+                url=audio_url,  # Send the audio stream URL, not YouTube URL
                 added_by=username
             )
             
@@ -59,8 +86,6 @@ class QueueCommands(commands.Cog):
                 return
             
             print(f'[+] Song added to queue')
-            # Wrap URL in backticks to prevent Discord embed
-            wrapped_url = f"`{url}`"
             
             # Check if anything is currently playing
             voice_client = interaction.guild.voice_client
@@ -70,8 +95,15 @@ class QueueCommands(commands.Cog):
                 await interaction.followup.send(f'✅ Added to queue: **{title}**')
             else:
                 # Nothing playing - start playing immediately
-                print('[*] Queue was empty, added to queue')
+                print('[*] Queue was empty, starting playback')
                 await interaction.followup.send(f'▶️ Now playing: **{title}**')
+                
+                # Start playback in background
+                if voice_client:
+                    print('[*] Starting audio playback')
+                    voice_cog = interaction.client.cogs.get('VoiceCommands')
+                    if voice_cog:
+                        asyncio.create_task(voice_cog.play_audio(guild_id, voice_client))
         except Exception as e:
             print(f'[-] Error in /play command: {e}')
             import traceback
@@ -122,9 +154,6 @@ class QueueCommands(commands.Cog):
             if len(remaining_songs) > 10:
                 embed.add_field(name='...', value=f"+{len(remaining_songs) - 10} more songs")
             
-            # Show total songs info
-            embed.set_footer(text=f"Showing {min(len(remaining_songs), 10)} of {len(remaining_songs)} remaining songs")
-            
             await interaction.followup.send(embed=embed)
         except Exception as e:
             print(f'[-] Error in /queue command: {e}')
@@ -143,17 +172,18 @@ class QueueCommands(commands.Cog):
             print('[*] /skip command invoked')
             
             guild_id = str(interaction.guild.id)
-            print(f'[*] Guild ID: {guild_id}')
             
-            result = await self.api.next_song(guild_id)
-            print(f'[*] API response: {result}')
-            
-            if result:
-                print('[+] Skip successful')
+            # Just stop the current playback
+            # The after-callback will automatically call play_next_in_queue()
+            # which will handle advancing the index and playing next song
+            voice_client = interaction.guild.voice_client
+            if voice_client and voice_client.is_playing():
+                print('[*] Stopping current playback to skip')
+                voice_client.stop()  # This triggers after_callback → play_next_in_queue()
                 await interaction.followup.send('⏭️ Skipped to next song')
             else:
-                print('[-] Skip failed - API returned None')
-                await interaction.followup.send('❌ Could not skip')
+                print('[-] Nothing is playing to skip')
+                await interaction.followup.send('❌ Nothing is playing')
         except Exception as e:
             print(f'[-] Error in /skip command: {e}')
             import traceback
@@ -178,6 +208,8 @@ class QueueCommands(commands.Cog):
                 await interaction.followup.send('Queue is empty')
                 return
             
+            current_index = queue.get('current_song_index', 0)
+            
             # Check if position is valid
             if position < 1 or position > len(queue['songs']):
                 print(f'[-] Invalid position: {position}')
@@ -193,6 +225,14 @@ class QueueCommands(commands.Cog):
             
             if success:
                 print(f'[+] Song removed')
+                
+                # If we removed the currently playing song, stop playback and play next
+                if position - 1 == current_index:
+                    print('[*] Removed song is currently playing, stopping playback')
+                    voice_client = interaction.guild.voice_client
+                    if voice_client and voice_client.is_playing():
+                        voice_client.stop()  # Will trigger after_callback to play next
+                
                 await interaction.followup.send(f'✅ Removed song at position {position}')
             else:
                 print('[-] Delete failed')
@@ -215,6 +255,12 @@ class QueueCommands(commands.Cog):
             
             guild_id = str(interaction.guild.id)
             print(f'[*] Clearing queue for guild {guild_id}')
+            
+            # Stop playback first
+            voice_client = interaction.guild.voice_client
+            if voice_client and voice_client.is_playing():
+                print('[*] Stopping playback before clearing queue')
+                voice_client.stop()
             
             success = await self.api.delete_queue(guild_id)
             

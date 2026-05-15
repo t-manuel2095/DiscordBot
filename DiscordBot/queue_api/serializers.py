@@ -31,11 +31,8 @@ class SongSerializer(serializers.ModelSerializer):
         fields = ('id','queue','title','url','added_by','position','duration','added_at')
         read_only_fields = ('id', 'added_at', 'queue', 'position')
     
-    def to_internal_value(self, data):
-        """Normalize YouTube URL before field validation."""
-        if 'url' in data:
-            data['url'] = normalize_youtube_url(data['url'])
-        return super().to_internal_value(data)
+    # Remove validation from url field since it can be either YouTube URL or audio stream URL
+    # The model field is now TextField instead of URLField
 
 class GuildQueueSerializer(serializers.ModelSerializer):
     songs = SongSerializer(many=True, read_only=True)
