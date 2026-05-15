@@ -44,6 +44,30 @@ async def on_ready():
     print('------')
     print(f'Commands in tree: {len(bot.tree._get_all_commands())}')
 
+@bot.listen()
+async def on_voice_state_update(member, before, after):
+    """Detect when bot is manually disconnected from voice"""
+    try:
+        # Check if the bot was disconnected
+        if member == bot.user:
+            print(f'[*] Bot voice state update: before={before.channel}, after={after.channel}')
+            # Bot was in voice channel but no longer
+            if before.channel and not after.channel:
+                print(f'[*] Bot manually disconnected from {before.channel.guild.name}')
+                guild_id = str(before.channel.guild.id)
+                
+                # Clear the queue
+                print(f'[*] Clearing queue for guild {guild_id}')
+                try:
+                    await bot.api.delete_queue(guild_id)
+                    print(f'[+] Queue deleted successfully')
+                except Exception as e:
+                    print(f'[-] Error deleting queue: {e}')
+    except Exception as e:
+        print(f'[-] Error in on_voice_state_update: {e}')
+        import traceback
+        traceback.print_exc()
+
 async def load_cogs():
     """Load all cogs from bot/commands/ directory"""
     cogs_dir = Path(__file__).parent / 'commands'

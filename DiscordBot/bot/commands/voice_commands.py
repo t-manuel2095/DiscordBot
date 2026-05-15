@@ -291,18 +291,25 @@ class VoiceCommands(commands.Cog):
             song_title = current_song['title']
             song_url = current_song['url']
             
-            print(f'[*] Repeating current song: {song_title}')
+            # Calculate insertion position (right after current song)
+            # Songs list is 0-indexed, but positions in API are based on database positions
+            # We want to insert at current_index + 1
+            insertion_position = current_index + 1
             
-            # Add current song again to next position
+            print(f'[*] Repeating current song: {song_title}')
+            print(f'[*] Inserting at position {insertion_position}')
+            
+            # Add current song again at the next position
             song_data = await self.api.add_song(
                 guild_id,
                 title=song_title,
                 url=song_url,
-                added_by=interaction.user.name
+                added_by=interaction.user.name,
+                position=insertion_position
             )
             
             if song_data:
-                print(f'[+] Song repeated and added to queue')
+                print(f'[+] Song repeated and added to queue at position {insertion_position}')
                 await interaction.followup.send(f'🔁 **{song_title}** will play again after current')
             else:
                 print('[-] Failed to repeat song')

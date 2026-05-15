@@ -26,7 +26,7 @@ class APIClient:
                     return await response.json()
                 return None
     
-    async def add_song(self, guild_id, title, url, added_by):
+    async def add_song(self, guild_id, title, url, added_by, position=None):
         """Add song to queue"""
         async with aiohttp.ClientSession() as session:
             endpoint = f'{self.base_url}/queues/{guild_id}/add_song/'
@@ -35,8 +35,14 @@ class APIClient:
                 'url': url,
                 'added_by': added_by
             }
+            if position is not None:
+                data['position'] = position
+            
             print(f'[*] API: Posting to {endpoint}')
             print(f'[*] API: URL in request: {url[:80] if url else "None"}...')
+            if position is not None:
+                print(f'[*] API: Inserting at position {position}')
+            
             async with session.post(endpoint, json=data) as response:
                 if response.status == 201:
                     result = await response.json()

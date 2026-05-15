@@ -17,15 +17,50 @@ class GuildQueueViewSet(viewsets.ModelViewSet):
     #Add song to queue
     @action(detail=True, methods=['post'])
     def add_song(self, request, guild_id=None):
+        from django.db import transaction
+        
         queue = self.get_object()
         
-        serializer = SongSerializer(data=request.data)
+        # Extract position from request if provided
+        requested_position = request.data.get('position', None)
+        
+        # Build song_data with only valid fields (exclude position)
+        song_data = {
+            'title': request.data.get('title'),
+            'url': request.data.get('url'),
+            'added_by': request.data.get('added_by')
+        }
+        
+        serializer = SongSerializer(data=song_data)
         if serializer.is_valid():
-            # Calculate position
-            last_song = queue.songs.order_by('-position').first()
-            position = (last_song.position + 1) if last_song else 0
+            if requested_position is not None:
+                # Insert at specific position and reorder songs after it
+                try:
+                    position = int(requested_position)
+                    
+                    with transaction.atomic():
+                        # First, shift all songs at or after this position up by 1
+                        songs_to_shift = queue.songs.filter(position__gte=position).order_by('-position')
+                        
+                        # Use bulk_update for efficiency
+                        songs_list = list(songs_to_shift)
+                        for song in songs_list:
+                            song.position += 1
+                        
+                        if songs_list:
+                            Song.objects.bulk_update(songs_list, ['position'])
+                        
+                        # Now save the new song at the requested position
+                        serializer.save(queue=queue, position=position)
+                        
+                except (ValueError, TypeError):
+                    return Response({'position': ['Invalid position value']}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                # Calculate position (append to end)
+                last_song = queue.songs.order_by('-position').first()
+                position = (last_song.position + 1) if last_song else 0
+                serializer.save(queue=queue, position=position)
             
-            serializer.save(queue=queue, position=position)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     

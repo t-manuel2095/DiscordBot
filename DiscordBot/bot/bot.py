@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 import os
 
+#basically a container for related commands using Cogs. Cogs organize commands into groups.
 class MusicBot(commands.Cog):
     def __init__(self, bot):
         self.bot = bot

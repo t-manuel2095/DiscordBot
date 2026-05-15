@@ -364,3 +364,92 @@ Now when bot is manually disconnected:
 
 **Last Updated:** Friday, May 15, 2026 - 12:07 PM
 **Total Time to Resolve:** ~8+ hours of debugging, testing, and enhancement
+
+---
+
+## Fix 9: `/repeat` Command Adding Song at Wrong Position (FIXED ✅)
+**Problem:** 
+- `/repeat` command was supposed to duplicate current song at position `current_index + 1`
+- Song was being added at the END of queue instead
+- Example: Queue was [Song A (0), Song B (1)], repeat Song A should give [Song A (0), Song A (1), Song B (2)], but gave [Song A (0), Song B (1), Song A (2)]
+
+**Root Causes:** 
+1. **Database Constraint Issue:** The database had a `unique_together` constraint on `['queue', 'position']`. When shifting songs individually with `song.save()`, constraint violations would occur mid-shift.
+   
+2. **Incorrect Model Ordering:** The Song model had `ordering = ['-queue']` which didn't order songs by position. When the API returned songs in the serializer, they weren't in position order, so the `/queue` command displayed them incorrectly.
+
+**Solution - Two Part Fix:**
+
+**Part 1: Use Atomic Transactions with Bulk Updates**
+Modified `queue_api/views.py` `add_song()` method:
+```python
+from django.db import transaction
+
+if requested_position is not None:
+    try:
+        position = int(requested_position)
+        
+        with transaction.atomic():
+            # Fetch songs to shift
+            songs_to_shift = queue.songs.filter(position__gte=position).order_by('-position')
+            
+            # Build list and increment positions
+            songs_list = list(songs_to_shift)
+            for song in songs_list:
+                song.position += 1
+            
+            # Use bulk_update for atomic operation (all at once, not individually)
+            if songs_list:
+                Song.objects.bulk_update(songs_list, ['position'])
+            
+            # NOW save new song at requested position
+            serializer.save(queue=queue, position=position)
+    except (ValueError, TypeError):
+        return Response({'position': ['Invalid position value']}, status=status.HTTP_400_BAD_REQUEST)
+```
+
+**Part 2: Fix Model Ordering**
+Changed `queue_api/models.py` Song model Meta class:
+```python
+class Song(models.Model):
+    # ... fields ...
+    
+    class Meta:
+        ordering = ['position']  # Changed from ['-queue']
+        unique_together = ['queue', 'position']
+```
+
+**Key Changes:**
+1. Wrapped entire operation in `transaction.atomic()` for atomicity
+2. Changed from individual `song.save()` calls to `Song.objects.bulk_update()` - all shifts happen in one atomic operation
+3. Save new song ONLY AFTER all shifts are complete
+4. **Most Important:** Changed Song model ordering to `['position']` so songs are always returned from DB in correct order
+
+**Result:**
+- `/repeat` now correctly inserts duplicated song at `current_index + 1`
+- Other songs shift down correctly (position + 1)
+- `/queue` command displays songs in correct order
+- Works with any queue size
+
+**Testing:**
+```
+Initial Queue (positions 0, 1):
+  0: Song A (NOW PLAYING)
+  1: Song B
+
+After /repeat:
+  0: Song A (NOW PLAYING) ✅
+  1: Song A (repeated) ✅
+  2: Song B ✅
+
+Discord display shows:
+  1. Song A (NOW PLAYING) ✅
+  2. Song A (repeated) ✅
+  3. Song B ✅
+```
+
+**Files Modified:**
+- `queue_api/views.py` - Updated `add_song()` with transactional bulk update logic
+- `queue_api/models.py` - Fixed Song model ordering from `['-queue']` to `['position']`
+
+**Status:** ✅ `/repeat` command working correctly - songs inserted at correct position and displayed in correct order

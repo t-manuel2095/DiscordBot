@@ -60,22 +60,10 @@ Before you start, make sure you have:
 
 ### Step 1: Start Django API Server
 
-Open **PowerShell** and navigate to the project:
+Open **PowerShell** and run:
 
 ```powershell
-cd C:\Users\Manuel\source\repos\DiscordBot\DiscordBot
-```
-
-Activate virtual environment:
-
-```powershell
-python -m pipenv shell
-```
-
-Run Django server:
-
-```powershell
-python manage.py runserver
+& "C:\Users\Manuel\.virtualenvs\DiscordBot-gl0z8POR\Scripts\python.exe" -u c:\Users\Manuel\source\repos\DiscordBot\DiscordBot\manage.py runserver
 ```
 
 You should see:
@@ -87,22 +75,10 @@ Starting development server at http://127.0.0.1:8000/
 
 ### Step 2: Start Discord Bot
 
-Open **another PowerShell window** and navigate to project:
+Open **another PowerShell window** and run:
 
 ```powershell
-cd C:\Users\Manuel\source\repos\DiscordBot\DiscordBot
-```
-
-Activate virtual environment:
-
-```powershell
-python -m pipenv shell
-```
-
-Run the bot with unbuffered output:
-
-```powershell
-python -u bot/main.py
+& "C:\Users\Manuel\.virtualenvs\DiscordBot-gl0z8POR\Scripts\python.exe" -u c:\Users\Manuel\source\repos\DiscordBot\DiscordBot\bot\main.py
 ```
 
 You should see:
@@ -115,6 +91,31 @@ Our bot#XXXX has connected to Discord!
 ```
 
 **Keep this window open!** Bot must stay running to respond to commands.
+
+---
+
+### Alternative (if pipenv is installed globally):
+
+If you have pipenv installed, you can use this simpler approach:
+
+**Terminal 1 - Django Server:**
+```powershell
+cd C:\Users\Manuel\source\repos\DiscordBot\DiscordBot
+python -m pipenv shell
+python manage.py runserver
+```
+
+**Terminal 2 - Discord Bot:**
+```powershell
+cd C:\Users\Manuel\source\repos\DiscordBot\DiscordBot
+python -m pipenv shell
+python -u bot/main.py
+```
+
+To install pipenv globally:
+```powershell
+pip install pipenv
+```
 
 ---
 

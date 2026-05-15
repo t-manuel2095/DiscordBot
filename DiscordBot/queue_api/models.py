@@ -26,7 +26,7 @@ class Song(models.Model):
 
 
     class Meta:
-        ordering = ['-queue']
+        ordering = ['position']
         unique_together = ['queue', 'position']
 
     def __str__(self):
