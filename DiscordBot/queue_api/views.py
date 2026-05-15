@@ -44,9 +44,25 @@ class GuildQueueViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def next_song(self, request, guild_id=None):
         queue = self.get_object()
-        queue.current_song_index += 1
-        queue.save()
-        return Response({'current_song_index': queue.current_song_index})
+        
+        # Get all songs ordered by position
+        songs = queue.songs.order_by('position')
+        
+        # Check if there are songs in the queue
+        if not songs.exists():
+            return Response({'detail': 'Queue is empty'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Get the count of songs
+        song_count = songs.count()
+        
+        # Move to next song if not at the end
+        if queue.current_song_index < song_count - 1:
+            queue.current_song_index += 1
+            queue.save()
+            return Response({'current_song_index': queue.current_song_index})
+        else:
+            # Already at the last song
+            return Response({'detail': 'Already at the last song in queue'}, status=status.HTTP_400_BAD_REQUEST)
 
     
 class SongViewSet(viewsets.ModelViewSet):

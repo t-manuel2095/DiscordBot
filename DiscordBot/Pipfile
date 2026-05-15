@@ -8,13 +8,15 @@ django = "*"
 djangorestframework = "*"
 mssql-django = "*"
 pyodbc = "*"
-"discord.py" = "*"
 yt-dlp = "*"
-pynacl = "*"
 requests = "*"
 python-decouple = "*"
+python-dotenv = "*"
+pynacl = "*"
+"discord.py" = {extras = ["voice"], version = "*"}
+aiohttp = "*"
 
 [dev-packages]
 
 [requires]
-python_version = "3.14"
+python_version = "3.12"
