@@ -302,7 +302,7 @@
 
 ---
 
-## Day 5: Discord Bot - API Integration & Queue Commands (CURRENT)
+## Day 5: Discord Bot - API Integration & Queue Commands (COMPLETE)
 
 ### Objectives
 - Connect bot to Django REST API
@@ -375,7 +375,7 @@
 
 ---
 
-## Day 5: Discord Bot - API Integration & Queue Commands
+## Day 5: Discord Bot - API Integration & Queue Commands(CURRENT)
 
 ### Objectives
 - Connect bot to Django REST API

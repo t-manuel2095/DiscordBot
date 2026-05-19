@@ -20,13 +20,14 @@ class VoiceCommands(commands.Cog):
         self.now_playing = {}  # Track what's playing: {guild_id: song_title}
         self.paused_state = {}  # Track paused guilds: {guild_id: True/False}
         self.keep_alive_tasks = {}  # Track keep-alive tasks: {guild_id: task}
+        self.now_playing_message_ids = {}  # Track now playing message IDs: {guild_id: (channel_id, message_id)}
     
-    @app_commands.command(name='leave', description='Bot leaves the voice channel')
+    @app_commands.command(name='lleave', description='Bot leaves the voice channel')
     async def leave(self, interaction: discord.Interaction):
         """Bot leaves the voice channel"""
         try:
             await interaction.response.defer()
-            print('[*] /leave command invoked')
+            print('[*] /lleave command invoked')
             
             if interaction.guild.voice_client:
                 guild_id = str(interaction.guild.id)
@@ -46,6 +47,7 @@ class VoiceCommands(commands.Cog):
                 # Clear paused state
                 self.paused_state.pop(guild_id, None)
                 self.now_playing.pop(guild_id, None)
+                self.now_playing_message_ids.pop(guild_id, None)
                 
                 print(f'[+] Queue cleared')
                 await interaction.followup.send('Left voice channel and cleared queue')
@@ -61,12 +63,12 @@ class VoiceCommands(commands.Cog):
             except:
                 print(f'[-] Failed to send error message')
     
-    @app_commands.command(name='pause', description='Pause audio playback')
+    @app_commands.command(name='ppause', description='Pause audio playback')
     async def pause(self, interaction: discord.Interaction):
         """Pause audio playback"""
         try:
             await interaction.response.defer()
-            print('[*] /pause command invoked')
+            print('[*] /ppause command invoked')
             
             guild_id = str(interaction.guild.id)
             
@@ -95,12 +97,12 @@ class VoiceCommands(commands.Cog):
             except:
                 print(f'[-] Failed to send error message')
     
-    @app_commands.command(name='resume', description='Resume audio playback')
+    @app_commands.command(name='rresume', description='Resume audio playback')
     async def resume(self, interaction: discord.Interaction):
         """Resume audio playback"""
         try:
             await interaction.response.defer()
-            print('[*] /resume command invoked')
+            print('[*] /rresume command invoked')
             
             guild_id = str(interaction.guild.id)
             
@@ -135,14 +137,24 @@ class VoiceCommands(commands.Cog):
                 print(f'[-] Failed to send error message')
     
     async def extract_song_info(self, url):
-        """Extract song info (title, duration, audio_url) from YouTube URL"""
+        """Extract song info (title, duration, audio_url) from YouTube URL or search query"""
         try:
             print(f'[*] Extracting info from: {url}')
             with yt_dlp.YoutubeDL(self.ydl_options) as ydl:
                 info = ydl.extract_info(url, download=False)
-                title = info.get('title', 'Unknown')
-                duration = info.get('duration', None)
-                audio_url = info.get('url')  # This is the direct audio stream URL
+                
+                # Handle search results - extract_info returns a playlist for searches
+                # Get the first video from the search results
+                if 'entries' in info:
+                    print(f'[*] Search returned {len(info["entries"])} results, using first result')
+                    video_info = info['entries'][0]
+                else:
+                    video_info = info
+                
+                title = video_info.get('title', 'Unknown')
+                duration = video_info.get('duration', None)
+                audio_url = video_info.get('url')  # This is the direct audio stream URL
+                
                 print(f'[+] Extracted - Title: {title}, Duration: {duration}')
                 print(f'[*] Audio URL extracted: {audio_url[:50]}...' if audio_url else '[-] No audio URL')
                 return {
@@ -225,6 +237,19 @@ class VoiceCommands(commands.Cog):
                         text_channel = guild.text_channels[0]
                     
                     if text_channel:
+                        # Delete previous now playing message if it exists
+                        if guild_id in self.now_playing_message_ids:
+                            old_channel_id, old_message_id = self.now_playing_message_ids[guild_id]
+                            try:
+                                old_channel = self.bot.get_channel(old_channel_id)
+                                if old_channel:
+                                    old_message = await old_channel.fetch_message(old_message_id)
+                                    await old_message.delete()
+                                    print(f'[+] Deleted old now playing message')
+                            except Exception as e:
+                                print(f'[-] Could not delete old message: {e}')
+                        
+                        # Send new now playing message
                         embed = discord.Embed(
                             title='🎵 Now Playing',
                             description=title,
@@ -234,7 +259,11 @@ class VoiceCommands(commands.Cog):
                         if current_song.get('duration'):
                             minutes, seconds = divmod(current_song['duration'], 60)
                             embed.add_field(name='Duration', value=f'{minutes}:{seconds:02d}')
-                        await text_channel.send(embed=embed)
+                        new_message = await text_channel.send(embed=embed)
+                        
+                        # Store the new message ID
+                        self.now_playing_message_ids[guild_id] = (text_channel.id, new_message.id)
+                        print(f'[+] Sent new now playing message (ID: {new_message.id})')
             except Exception as e:
                 print(f'[-] Error sending now playing message: {e}')
             
@@ -260,16 +289,50 @@ class VoiceCommands(commands.Cog):
                 # Play the next song
                 await self.play_audio(guild_id, voice_client)
             else:
-                print('[-] Failed to advance queue')
+                # Failed to advance - likely reached end of queue
+                print('[*] End of queue reached, disconnecting bot')
+                
+                # Delete the last "Now Playing" message if it exists
+                if guild_id in self.now_playing_message_ids:
+                    channel_id, message_id = self.now_playing_message_ids[guild_id]
+                    try:
+                        channel = self.bot.get_channel(channel_id)
+                        if channel:
+                            message = await channel.fetch_message(message_id)
+                            await message.delete()
+                            print(f'[+] Deleted last now playing message')
+                    except Exception as e:
+                        print(f'[-] Could not delete last message: {e}')
+                
+                # Get guild object and disconnect
+                guild = self.bot.get_guild(int(guild_id))
+                if guild and guild.voice_client:
+                    await guild.voice_client.disconnect()
+                    print('[+] Bot disconnected after queue finished')
+                
+                # Clear queue
+                await self.api.delete_queue(guild_id)
+                print('[+] Queue cleared')
+                
+                # Clear state
+                self.paused_state.pop(guild_id, None)
+                self.now_playing.pop(guild_id, None)
+                self.now_playing_message_ids.pop(guild_id, None)
+                
+                # Cancel keep-alive task if exists
+                if guild_id in self.keep_alive_tasks:
+                    self.keep_alive_tasks[guild_id].cancel()
+                    del self.keep_alive_tasks[guild_id]
+                
         except Exception as e:
             print(f'[-] Error in auto-advance: {e}')
     
-    @app_commands.command(name='repeat', description='Add current playing song to queue to play again')
+    @app_commands.command(name='rrepeat', description='Add current playing song to queue to play again')
     async def repeat(self, interaction: discord.Interaction):
         """Add current playing song to queue as next song (duplicate at position 2)"""
         try:
             await interaction.response.defer()
-            print('[*] /repeat command invoked')
+            print('[*] /rrepeat command invoked')
             
             guild_id = str(interaction.guild.id)
             

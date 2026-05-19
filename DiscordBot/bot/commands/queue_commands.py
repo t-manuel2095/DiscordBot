@@ -3,6 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 from bot.api_client import APIClient
 import asyncio
+import re
 
 #Created using Cursor
 
@@ -11,17 +12,28 @@ class QueueCommands(commands.Cog):
         self.bot = bot
         self.api = APIClient()
     
-    @app_commands.command(name='play', description='Queue a song from YouTube and play if nothing is playing')
-    async def play(self, interaction: discord.Interaction, url: str):
+    @app_commands.command(name='pplay', description='Queue a song from YouTube and play if nothing is playing')
+    async def play(self, interaction: discord.Interaction, query: str):
         """Queue a song from YouTube and play if nothing is playing"""
         try:
             await interaction.response.defer()
-            print(f'[*] /play command invoked with URL: {url}')
+            print(f'[*] /pplay command invoked with query: {query}')
             
             guild_id = str(interaction.guild.id)
             username = interaction.user.name
             
             print(f'[*] Guild ID: {guild_id}, User: {username}')
+            
+            # Check if input is a URL or a search string
+            url_pattern = r'https?://(www\.)?(youtube\.com|youtu\.be)'
+            is_url = re.match(url_pattern, query)
+            
+            # If it's a search string, append "lyrics" if not already present
+            search_query = query
+            if not is_url:
+                if not search_query.lower().endswith('lyrics'):
+                    search_query = f"{search_query} lyrics"
+                    print(f'[*] Modified search query: {search_query}')
             
             # Check if bot is in voice channel, if not auto-join user's channel
             if not interaction.guild.voice_client:
@@ -43,9 +55,9 @@ class QueueCommands(commands.Cog):
             print(f'[*] Extracting song info from YouTube...')
             voice_cog = interaction.client.cogs.get('VoiceCommands')
             if voice_cog:
-                song_info = await voice_cog.extract_song_info(url)
+                song_info = await voice_cog.extract_song_info(search_query)
                 if not song_info:
-                    await interaction.followup.send('❌ Could not extract song info from URL')
+                    await interaction.followup.send('❌ Could not extract song info from URL or search query')
                     return
                 title = song_info['title']
                 duration = song_info.get('duration', 0)
@@ -60,7 +72,7 @@ class QueueCommands(commands.Cog):
             else:
                 title = 'Song'
                 duration = 0
-                audio_url = url
+                audio_url = search_query
             
             print(f'[*] Song title: {title}')
             
@@ -105,7 +117,7 @@ class QueueCommands(commands.Cog):
                     if voice_cog:
                         asyncio.create_task(voice_cog.play_audio(guild_id, voice_client))
         except Exception as e:
-            print(f'[-] Error in /play command: {e}')
+            print(f'[-] Error in /pplay command: {e}')
             import traceback
             traceback.print_exc()
             try:
@@ -113,12 +125,12 @@ class QueueCommands(commands.Cog):
             except:
                 print(f'[-] Failed to send error message')
     
-    @app_commands.command(name='queue', description='Display current queue')
+    @app_commands.command(name='qqueue', description='Display current queue')
     async def show_queue(self, interaction: discord.Interaction):
         """Display current queue"""
         try:
             await interaction.response.defer()
-            print('[*] /queue command invoked')
+            print('[*] /qqueue command invoked')
             
             guild_id = str(interaction.guild.id)
             queue = await self.api.get_queue(guild_id)
@@ -164,12 +176,12 @@ class QueueCommands(commands.Cog):
             except:
                 print(f'[-] Failed to send error message')
     
-    @app_commands.command(name='skip', description='Skip to next song')
+    @app_commands.command(name='sskip', description='Skip to next song')
     async def skip(self, interaction: discord.Interaction):
         """Skip to next song"""
         try:
             await interaction.response.defer()
-            print('[*] /skip command invoked')
+            print('[*] /sskip command invoked')
             
             guild_id = str(interaction.guild.id)
             
@@ -193,12 +205,12 @@ class QueueCommands(commands.Cog):
             except:
                 print(f'[-] Failed to send error message')
 
-    @app_commands.command(name='remove', description='Remove song at position')
+    @app_commands.command(name='rremove', description='Remove song at position')
     async def remove(self, interaction: discord.Interaction, position: int):
         """Remove song at position"""
         try:
             await interaction.response.defer()
-            print(f'[*] /remove command invoked - position: {position}')
+            print(f'[*] /rremove command invoked - position: {position}')
             
             guild_id = str(interaction.guild.id)
             queue = await self.api.get_queue(guild_id)
@@ -246,12 +258,12 @@ class QueueCommands(commands.Cog):
             except:
                 print(f'[-] Failed to send error message')
     
-    @app_commands.command(name='clear', description='Clear entire queue')
+    @app_commands.command(name='cclear', description='Clear entire queue')
     async def clear(self, interaction: discord.Interaction):
         """Clear entire queue"""
         try:
             await interaction.response.defer()
-            print('[*] /clear command invoked')
+            print('[*] /cclear command invoked')
             
             guild_id = str(interaction.guild.id)
             print(f'[*] Clearing queue for guild {guild_id}')
@@ -279,7 +291,7 @@ class QueueCommands(commands.Cog):
             except:
                 print(f'[-] Failed to send error message')
     
-    @app_commands.command(name='nowplaying', description='Show currently playing song')
+    @app_commands.command(name='nnowplaying', description='Show currently playing song')
     async def now_playing(self, interaction: discord.Interaction):
         """Show currently playing song"""
         await interaction.response.defer()
